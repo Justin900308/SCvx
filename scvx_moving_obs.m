@@ -15,7 +15,7 @@ Ad=sysd.A;
 Bd=sysd.B;
 T=50;
 %% intial trajectory
-R=3;
+R=4;
 obs_center=[7;5];
 count=1;
 X(:,1)=[0;0;0;0];
@@ -84,9 +84,9 @@ for k=1:60
         variable v(4,N-1)
         variable d(4,N)
         variable U(1,N-1)
-        %variable s(N)
+        variable s(N)
         %variable s_pos(N)
-        minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))   )
+        minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v))) +  1*lambda*sum(max(s,0))  )
         subject to
         E=eye(4);
         d(:,1)==[0;0;0;0];
@@ -102,7 +102,7 @@ for k=1:60
             %-0.1<=d(3:4,i)<=0.1;
 
 
-            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=0;
+            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
             %R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)==s(i);
         end
         
@@ -111,11 +111,7 @@ for k=1:60
     cvx_end
 
     % 
-    for i=1:N-1
-        obs_center=[7-i*0.1;5];
-        s(i)=R-norm(X(1:2,i)-obs_center,2);
 
-    end
 
     w=full(w);
     v=full(v);
@@ -124,10 +120,16 @@ for k=1:60
     u=u+w;
     hold on
     plot(X(1,:),X(2,:),'.')
-    pause(0.01)
-    if max(s)<0 && k>4
+    
+    for i=1:N-1
+        obs_center=[7-i*0.1;5];
+        ss(i)=R-norm(X(1:2,i)-obs_center,2);
+
+    end
+    if max(ss)<0 && k>4
         break;
     end
+    pause(0.01)
 end
 
 
@@ -139,8 +141,8 @@ for t=0:Ts:5
     obs_center=[7-count*0.1;5];
     clf
     plot(X(1,1:count),X(2,1:count),'b.',MarkerSize=10);
-    xlim([0 15])
-    ylim([0 15])
+    xlim([-2 15])
+    ylim([-2 15])
     hold on
     theta=linspace(0,2*pi,201);
     x_theta=R*cos(theta);

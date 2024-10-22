@@ -69,9 +69,9 @@ for k=1:60
         variable v(4,N-1)
         variable d(4,N)
         variable U(1,N-1)
-        variable s(N)
+        %variable s(N)
         %variable s_pos(N)
-        minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))  + lambda*sum(max(s,0)) )
+        minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))   )
         subject to
         E=eye(4);
         d(:,1)==[0;0;0;0];
@@ -87,7 +87,7 @@ for k=1:60
             %-0.1<=d(3:4,i)<=0.1;
 
 
-            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
+            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=0;
             %R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)==s(i);
         end
         
@@ -96,7 +96,11 @@ for k=1:60
     cvx_end
 
     % 
+    for i=1:N-1
 
+        s(i)=R-norm(X(1:2,i)-obs_center,2);
+
+    end
 
     w=full(w);
     v=full(v);
@@ -105,13 +109,8 @@ for k=1:60
     u=u+w;
     hold on
     plot(X(1,:),X(2,:),'.')
-    for i=1:N-1
-
-        ss(i)=R-norm(X(1:2,i)-obs_center,2);
-
-    end
     pause(0.01)
-    if max(ss)<0 && k>4
+    if max(s)<0 && k>4
         break;
     end
 end
