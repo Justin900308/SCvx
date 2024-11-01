@@ -43,11 +43,15 @@ end
 hold on
 
 %%
+R_obs=2;
+R_agent=0.5;
 N=length(X(1,:));
 obs_center=[7,9; ...
-    14.1,11.1];
-R=[2,2];
-
+    14.1,11.1; ...
+    X(1:2,1)'; ...
+    X(3:4,1)'];
+R_plot=[R_obs,R_obs,R_agent,R_agent];
+R=[R_obs+R_agent,R_obs+R_agent,2*R_agent,2*R_agent];
 
 
 alpha=1;
@@ -66,14 +70,14 @@ hold on
 
 theta=linspace(0,2*pi,201);
 for j=1:obs_num
-    x_theta=R(j)*cos(theta);
-    y_theta=R(j)*sin(theta);
+    x_theta=R_plot(j)*cos(theta);
+    y_theta=R_plot(j)*sin(theta);
     plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta)
 end
 
 for iteration=1:60
     
-    
+
 
 
 
@@ -84,13 +88,13 @@ for iteration=1:60
         variable v(2*Num_agen,N-1)
         variable d(2*Num_agen,N)
         variable U(1,N-1)
-        variable s(N*obs_num,Num_agen)
+        variable s(N*(obs_num-1),Num_agen)
 
         variable X_diff(N-1,Num_agen)
         %variable s_pos(N)
         %minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))  + lambda*(sum(max(s(:,1),0))   +   1*sum(max(s(:,2),0))) )
         
-        minimize (  500*sum(sum(X_diff)) + lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   )) 
+        minimize (   0.001*sum(sum(abs((u+w)*Ts))) + lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   )) 
 
         subject to
         cvx_precision best
@@ -98,7 +102,17 @@ for iteration=1:60
         E=eye(2);
         d(:,1)==zeros(2*Num_agen,1);
 
+
+
+
+        
         for i=1:N-1
+
+        obs_center=[7,9; ...
+                    14.1,11.1; ...
+                     X(1:2,i)'; ...
+                     X(3:4,i)'];
+
             for j=1:Num_agen
 
 
@@ -111,16 +125,21 @@ for iteration=1:60
                     (Bd*u((2*j-1):(2*j),i)+Bd*w((2*j-1):(2*j),i))+E*v((2*j-1):(2*j),i);
                 U(i)==norm(u(:,i),2);
 
-                X_diff(i,j)==norm(X((2*j-1):(2*j),i+1)-X((2*j-1):(2*j),i),2);
+                %X_diff(i,j)==norm(X((2*j-1):(2*j),i+1)-X((2*j-1):(2*j),i),2);
 
 
 
 
+                countk=1;
 
                 for k=1:obs_num
+                    if k==j+2
+                        continue
+                    end
                     R(k)-norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2)- ...
                         (X((2*j-1):(2*j),i)-obs_center(k,:)')'*(X((2*j-1):(2*j),i)+d((2*j-1):(2*j),i)-obs_center(k,:)') ...
-                        /norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2)<=s((k-1)*(N-1)+i,j);
+                        /norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2)<=s((countk-1)*(N)+i,j);
+                    countk=countk+1;
                 end
             end
 
@@ -146,12 +165,23 @@ for iteration=1:60
     ss=0;
 
 
-    for i=1:N-1
+
+    for i=1:N
+        obs_center=[7,9; ...
+            14.1,11.1; ...
+            X(1:2,1)'; ...
+            X(3:4,1)'];
         for j=1:Num_agen
+            countk=1;
             for k=1:obs_num
-                ss((k-1)*(N-1)+i,j)=R(k)-norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2);
+                if k==j+2
+                    continue
+                end
+                ss((countk-1)*(N)+i,j)=R(k)-norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2);
+                countk=countk+1;
             end
         end
+        
     end
 
     ss_max=max(ss);
@@ -176,20 +206,37 @@ end
 %%
 figure(2)
 hold on
-for i=1:Num_agen
-    hold on
-    plot(X((2*i-1),:),X((2*i),:),'.')
-    %plot(X0((2*i-1),:),X0((2*i),:),'.')
+for i=1:N
+    for j=1:Num_agen
+        hold on
+        plot(X((2*j-1),i),X((2*j),i),'g.')
+        %plot(X0((2*i-1),:),X0((2*i),:),'.')
+    end
+
+    obs_center=[7,9; ...
+        14.1,11.1; ...
+        X(1:2,i)'; ...
+        X(3:4,i)'];
+
+
+    theta=linspace(0,2*pi,201);
+    xlim([0 25])
+    ylim([0 25])
+    for j=1:obs_num
+        hold on
+        x_theta=R_plot(j)*cos(theta);
+        y_theta=R_plot(j)*sin(theta);
+        plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'b')
+    end
+
+pause(0.05)
+%clf
+
+
 end
 
-theta=linspace(0,2*pi,201);
-xlim([0 20])
-ylim([0 20])
-for j=1:obs_num
-    x_theta=R(j)*cos(theta);
-    y_theta=R(j)*sin(theta);
-    plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta)
-end
+
+
 
 
 
