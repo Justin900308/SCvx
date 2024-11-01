@@ -103,10 +103,11 @@ for iteration=1:60
     
 
 
-
+    cvx_solver SDPT3
+    cvx_precision best
 
     cvx_begin 
-        cvx_solver sedumi
+
         variable w(2*Num_agen,N-1)
 
         variable v(2*Num_agen,N-1)
@@ -118,7 +119,7 @@ for iteration=1:60
         %variable s_pos(N)
         %minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))  + lambda*(sum(max(s(:,1),0))   +   1*sum(max(s(:,2),0))) )
         
-        minimize (  500*sum(sum(v_diff)) + 1000*lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   )) 
+        minimize (  0.001*sum(sum(abs((u+w)*Ts))) + 1000*lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   )) 
 
         subject to
         cvx_precision best
@@ -193,7 +194,7 @@ for iteration=1:60
 
         end
 
-        X(:,N)+d(:,N)==[20;25 ;  20;20 ; 25;20   ;  25;25 ];
+        X(:,N)+d(:,N)==[20+20;25 ;  20+20;20 ; 25+20;20   ;  25+20;25 ];
         
     cvx_end
 
@@ -246,7 +247,7 @@ for iteration=1:60
 
     
     
-    if max(max(ss))<0 && iteration>4
+    if max(max(ss))<0 && iteration>40
         break;
     end
     pause(0.01)
@@ -280,8 +281,8 @@ for i=1:N
 
 
     theta=linspace(0,2*pi,201);
-    xlim([-5 30])
-    ylim([-5 30])
+    xlim([-5 50])
+    ylim([-5 50])
     for j=1:obs_num
         hold on
         x_theta=R_plot(j)*cos(theta);
