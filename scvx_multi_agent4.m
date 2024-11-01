@@ -81,7 +81,9 @@ for iteration=1:60
 
 
 
-
+    %cvx_solver sedumi
+    cvx_solver SDPT3
+    cvx_precision best
     cvx_begin 
         
         variable w(2*Num_agen,N-1)
@@ -95,7 +97,7 @@ for iteration=1:60
         %variable s_pos(N)
         %minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))  + lambda*(sum(max(s(:,1),0))   +   1*sum(max(s(:,2),0))) )
         
-        minimize (  500*sum(sum(X_diff)) + lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   )) 
+        minimize (  0.001*sum(sum(abs((u+w)*Ts))) + lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   )) 
 
         subject to
         cvx_precision best
@@ -200,7 +202,7 @@ for iteration=1:60
 
     
     
-    if max(max(ss))<0 && iteration>4
+    if max(max(ss))<0 && iteration>6
         break;
     end
     pause(0.01)
@@ -213,7 +215,16 @@ hold on
 for i=1:N
     for j=1:Num_agen
         hold on
-        plot(X((2*j-1),i),X((2*j),i),'g.')
+        if j==1
+            plot(X((2*j-1),i),X((2*j),i),'r.')
+        elseif j==2
+            plot(X((2*j-1),i),X((2*j),i),'g.')
+        elseif j==3
+            plot(X((2*j-1),i),X((2*j),i),'b.')
+        elseif j==4
+            plot(X((2*j-1),i),X((2*j),i),'c.')
+        end
+        
         %plot(X0((2*i-1),:),X0((2*i),:),'.')
     end
 
@@ -225,13 +236,21 @@ for i=1:N
 
 
     theta=linspace(0,2*pi,201);
-    xlim([0 25])
-    ylim([0 25])
+    xlim([-0 26])
+    ylim([-0 26])
     for j=1:obs_num
         hold on
         x_theta=R_plot(j)*cos(theta);
         y_theta=R_plot(j)*sin(theta);
-        plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'b')
+        if j==1
+            plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'r')
+        elseif j==2
+            plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'g')
+        elseif j==3
+            plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'b')
+        elseif j==4
+            plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'c')
+        end
     end
 
 pause(0.05)
@@ -239,8 +258,6 @@ pause(0.05)
 
 
 end
-
-
 
 
 
