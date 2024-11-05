@@ -16,6 +16,8 @@ sys = signal.StateSpace(A, B, C, D)
 Ts = 0.1  # Sampling time
 T_end = 8  # End time
 
+T = T_end / Ts + 1
+
 # Discretize the system
 sysd = sys.to_discrete(Ts)
 Ad = sysd.A
@@ -67,8 +69,12 @@ import cvxpy as cp
 
 # Initialize variables
 
-obs_center = np.array([5, 5])
-R = 5
+# obs_center = np.array([4, 6])
+obs_center = np.zeros((int(T), 2))
+for i in range(int(T)):
+    obs_center[i, :] = np.array([12 - 0.02 * i, 8 - 0.00 * i])
+
+R = 2
 alpha = 1
 r_default = 1
 
@@ -90,7 +96,12 @@ theta = np.linspace(0, 2 * np.pi, 201)
 x_theta = R * np.cos(theta)
 y_theta = R * np.sin(theta)
 plt.figure(1)
-plt.plot(obs_center[0] + x_theta, obs_center[1] + y_theta)
+
+for i in range(int(T)):
+    plt.plot(X[0, :], X[1, :], '.')
+    plt.plot(obs_center[i,0] + x_theta, obs_center[i,1]  + y_theta)
+
+
 
 # Start the iterative optimization process
 for k in range(201):
@@ -129,9 +140,9 @@ for k in range(201):
         # constraints.append(cp.abs(w[1, i]) <= r_default)
 
         # Obstacle avoidance constraint
-        constraints.append(R - cp.norm(X[0:2, i] - obs_center, 2) - (X[0:2, i] - obs_center).T @ (
-                X[0:2, i] + d[0:2, i] - obs_center) / cp.norm(X[0:2, i] - obs_center, 2) <= s[:, i])
-        constraints.append(0 <= s[:, i])
+        constraints.append(2 * R - cp.norm(X[0:2, i] - obs_center[i, :], 2) - (X[0:2, i] - obs_center[i, :]).T @ (
+                X[0:2, i] + d[0:2, i] - obs_center[i, :]) / cp.norm(X[0:2, i] - obs_center[i, :], 2) <= s[:, i])
+        constraints.append(s[:, i] >= 0)
         # constraints.append(R - cp.norm(X[0:2, i] - obs_center, 2) - (X[0:2, i] - obs_center).T @ (X[0:2, i] - obs_center) / cp.norm(X[0:2, i] - obs_center, 2) == s[i])
 
     # Terminal condition
@@ -141,7 +152,7 @@ for k in range(201):
     problem = cp.Problem(cp.Minimize(Linear_cost), constraints)
 
     # Solve the optimization problem
-    problem.solve(solver=cp.SCS)
+    problem.solve(solver=cp.CLARABEL)
 
     # Update the variables after solving
     w_val = w.value
@@ -158,26 +169,26 @@ for k in range(201):
     rho0 = 0
     rho1 = 0.25
     rho2 = 0.7
-    delta_L=(linear_cost[k + 1, 0] - linear_cost[k, 0])/linear_cost[k, 0]
-    if delta_L<=rho0:
+    delta_L = (linear_cost[k + 1, 0] - linear_cost[k, 0]) / linear_cost[k, 0]
+    if delta_L <= rho0:
         r_default = np.max((r_default, 0.8))
         X = X + d_val
         u = u + w_val
-    elif delta_L<=rho1:
+    elif delta_L <= rho1:
         r_default = r_default
         X = X + d_val
         u = u + w_val
-    elif delta_L<=rho2:
-        r_default=r_default/3.2
+    elif delta_L <= rho2:
+        r_default = r_default / 3.2
         X = X + d_val
         u = u + w_val
     else:
         X = X
         u = u
+    r_default = 1
     # X[:, j + 1] + d_val[:, j + 1]
     # (Ad @ X[:, j] + Ad @ d_val[:, j]) + (Bd @ u[:, j] + Bd @ w_val[:, j]) + E @ v_val[:, j]
     # Update the trajectory
-
 
     # Plot the updated trajectory
     plt.plot(X[0, :], X[1, :], '.')
@@ -189,7 +200,7 @@ for k in range(201):
     for i in range(N - 1):
         ss[i] = R - LA.norm(X[0:2, i] - obs_center, 2)
 
-    if (np.max(ss) < 0) and (k > 80):
+    if (np.max(ss) < 0) and (k > 20):
         break
 
     # # Break if the max value of s is less than 0 (constraint satisfied)
@@ -197,7 +208,20 @@ for k in range(201):
     #     break
 
 # Final trajectory plot
+plt.clf()
+
 plt.figure(2)
-plt.plot(X[0, :], X[1, :], '.')
-plt.plot(obs_center[0] + x_theta, obs_center[1] + y_theta)
-plt.show()
+for i in range(int(T)):
+
+    plt.plot(X[0, i], X[1, i], '.')
+    plt.plot(obs_center[i,0] + x_theta, obs_center[i,1]  + y_theta)
+    plt.xlim((0,15))
+    plt.ylim((0,15))
+    plt.pause(0.001)
+    plt.clf()
+
+
+# plt.figure(2)
+# plt.plot(X[0, :], X[1, :], '.')
+# plt.plot(obs_center[0] + x_theta, obs_center[1] + y_theta)
+# plt.show()
