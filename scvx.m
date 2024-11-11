@@ -17,7 +17,7 @@ T=50;
 %% intial trajectory
 count=1;
 X(:,1)=[0;0;0;0];
-for t=0:Ts:5
+for t=0:Ts:10
     if t<2
         u(:,count)=1*[1;01];
     else
@@ -35,8 +35,8 @@ hold on
 
 %%
 N=length(X(1,:));
-obs_center=[5;5];
-R=3;
+obs_center=[7;7];
+R=4;
 alpha=1;
 
 r_default=0.8;
@@ -50,7 +50,7 @@ figure(1)
 tol=0.001;
 
 
-
+Linear_cost=zeros(1,200);
 
 
 theta=linspace(0,2*pi,201);
@@ -61,33 +61,31 @@ for k=1:60
     
 
 
-
-    cvx_begin quiet
+    cvx_solver SDPT3
+    cvx_precision best
+    cvx_begin 
         
         variable w(2,N-1)
 
         variable v(4,N-1)
         variable d(4,N)
-        variable U(1,N-1)
         variable s(N)
         %variable s_pos(N)
-        minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))  + lambda*sum(max(s,0)) )
+        minimize (  norm((u+w),1) + lambda*sum(sum(abs(v)))  + lambda*sum(max(s,0)) )
         subject to
         E=eye(4);
-        d(:,1)==[0;0;0;0];
+        d(:,1)+X(:,1)==[0;0;0;0];
         
         for i=1:N-1
             X(:,i+1)+d(:,i+1)==(Ad*X(:,i)+Ad*d(:,i))+(Bd*u(:,i)+Bd*w(:,i))+E*v(:,i);
-            U(i)==norm(u(:,i),2);
-            
             -r_default<=w(1,i)<=r_default;
             -r_default<=w(2,i)<=r_default;
             dh=2*(X(1:2,i)-obs_center);
             h=norm(X(1:2,i)-obs_center,2);
             %-0.1<=d(3:4,i)<=0.1;
 
-
-            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
+            s(i)>=0;
+            2*R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
             %R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)==s(i);
         end
         
@@ -95,29 +93,67 @@ for k=1:60
         
     cvx_end
 
-    % 
-
 
     w=full(w);
     v=full(v);
     d=full(d);
-    X=X+d;
-    u=u+w;
+
+    % 
+
+    rho0 = 0;
+    rho1 = 0.25;
+    rho2 = 0.7;
+
+    Linear_cost(k)=norm((u+w),1) + lambda*sum(sum(abs(v)))  + lambda*sum(max(s,0));
+
+    if k >= 2
+        delta_L = (Linear_cost(k) - Linear_cost(k-1)) / Linear_cost(k);
+    else
+        delta_L = 1;
+    end
+
+
+    if abs(delta_L) <= rho0
+        r_default = max(r_default, 1.8);
+        X = X + d;
+        u = u + w;
+    elseif abs(delta_L) <= rho1
+        r_default = r_default/1.5;
+        X = X + d;
+        u = u + w;
+    elseif abs(delta_L) <= rho2
+        r_default = r_default / 3.2;
+        X = X + d;
+        u = u + w;
+    else
+        X = X + d;
+        u = u + w;
+        r_default = 1.8;
+    end
+    abs(delta_L)
+    r_default
+
+
+    % X=X+d;
+    % u=u+w;
     hold on
     plot(X(1,:),X(2,:),'.')
+
+    xlim([-3 15]);
+    ylim([-3 15]);
     for i=1:N-1
 
         ss(i)=R-norm(X(1:2,i)-obs_center,2);
 
     end
     pause(0.01)
-    if max(ss)<0 && k>4
+    if max(ss)<0 && k>100
         break;
     end
 end
 
 
-
+%%
 figure(2)
 hold on
 plot(X(1,:),X(2,:),'.')
