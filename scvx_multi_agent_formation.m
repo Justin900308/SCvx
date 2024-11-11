@@ -22,7 +22,7 @@ T=50;
 count=1;
 %X(:,1)=[0;0 ;  20;0 ; 20;20   ;  0;20 ];
 X(:,1)=[0;0 ;  0;5 ; 0;10   ;  0;15 ];
-for t=0:Ts:5
+for t=0:Ts:10
     if t<2
         u(:,count)=0*ones(2*Num_agen,1);
     else
@@ -67,7 +67,7 @@ Laplacian = - ones(Num_agen) + Num_agen*eye(Num_agen);
 
 %%
 R_obs=2;
-R_agent=1;
+R_agent=2.2;
 N=length(X(1,:));
 obs_center=[
     X(1:2,1)'; ...
@@ -80,7 +80,7 @@ R=2*R_plot;
 
 alpha=1;
 obs_num=length(R);
-r_default=0.7*ones(Num_agen,1);
+r_default=1;
 
 lambda=10000;
 
@@ -98,7 +98,7 @@ for j=1:obs_num
     y_theta=R_plot(j)*sin(theta);
     plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta)
 end
-
+Linear_cost=zeros(1,200);
 for iteration=1:60
     
 
@@ -119,7 +119,7 @@ for iteration=1:60
         %variable s_pos(N)
         %minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))  + lambda*(sum(max(s(:,1),0))   +   1*sum(max(s(:,2),0))) )
         
-        minimize (  0.001*sum(sum(abs((u+w)*Ts))) + 1000*lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   )) 
+        minimize (  norm(u+w,1) + 10*lambda*sum(sum(abs(v)))  + lambda*(   sum(sum(max(s,0)))   )) 
 
         subject to
         cvx_precision best
@@ -165,7 +165,7 @@ for iteration=1:60
             for j=1:Num_agen
 
 
-                -r_default(j,1)<=w((2*j-1):(2*j),i)<=r_default(j,1);
+                -r_default<=w((2*j-1):(2*j),i)<=r_default;
   
 
 
@@ -185,9 +185,10 @@ for iteration=1:60
                     if k==j
                         continue
                     end
-                    R(k)-norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2)- ...
+                    2*R(k)-norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2)- ...
                         (X((2*j-1):(2*j),i)-obs_center(k,:)')'*(X((2*j-1):(2*j),i)+d((2*j-1):(2*j),i)-obs_center(k,:)') ...
                         /norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2)<=s((countk-1)*(N)+i,j);
+                    s((countk-1)*(N)+i,j)>=0;
                     countk=countk+1;
                 end
             end
@@ -200,12 +201,46 @@ for iteration=1:60
 
     % 
 
+    Linear_cost(iteration)=norm((u+w),1) + 10*lambda*sum(sum(abs(v)))  + lambda*(   sum(sum(max(s,0)))   );
+
+    if iteration >= 2
+        delta_L = (Linear_cost(iteration) - Linear_cost(iteration-1)) / Linear_cost(iteration);
+    else
+        delta_L = 1;
+    end
 
     w=full(w);
     v=full(v);
     d=full(d);
-    X=X+d;
-    u=u+w;
+
+    rho0 = 0;
+    rho1 = 0.25;
+    rho2 = 0.7;
+    if Linear_cost(iteration)<=10000
+        if abs(delta_L) <= rho0
+            r_default = max(r_default, 0.8);
+            X = X + d;
+            u = u + w;
+        elseif abs(delta_L) <= rho1
+            r_default = r_default/1.5;
+            X = X + d;
+            u = u + w;
+        elseif abs(delta_L) <= rho2
+            r_default = r_default / 3.2;
+            X = X + d;
+            u = u + w;
+        else
+            X = X + d;
+            u = u + w;
+            r_default = 0.8;
+        end
+    else
+        X = X + d;
+        u = u + w;
+        r_default = 0.8;
+    end
+    abs(delta_L);
+    r_default
     hold on
     for i=1:Num_agen
         hold on
@@ -237,13 +272,6 @@ for iteration=1:60
 
     ss_max=max(ss);
 
-    % for i=1:Num_agen
-    %     if ss_max(i)<0
-    %         r_default(i)=0.01;
-    %     else
-    %         r_default(i)=1;
-    %     end
-    % end
 
     
     
@@ -299,7 +327,7 @@ for i=1:N
     end
 
 pause(0.05)
-%clf
+clf
 
 
 end
