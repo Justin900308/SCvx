@@ -57,7 +57,7 @@ theta=linspace(0,2*pi,201);
 x_theta=R*cos(theta);
 y_theta=R*sin(theta);
 plot(obs_center(1)+x_theta,obs_center(2)+y_theta)
-for k=1:60
+for k=1:600
     
 
 
@@ -68,18 +68,16 @@ for k=1:60
 
         variable v(4,N-1)
         variable d(4,N)
-        variable U(1,N-1)
-        %variable s(N)
+        variable s(N)
         %variable s_pos(N)
-        minimize (  500*sum(U*Ts) + lambda*sum(sum(abs(v)))   )
+        minimize (   0.001*sum(sum(abs((u+w)*Ts))) + lambda*sum(sum(abs(v)))  + lambda*sum(max(s,0)) )
         subject to
         E=eye(4);
         d(:,1)==[0;0;0;0];
         
         for i=1:N-1
             X(:,i+1)+d(:,i+1)==(Ad*X(:,i)+Ad*d(:,i))+(Bd*u(:,i)+Bd*w(:,i))+E*v(:,i);
-            U(i)==norm(u(:,i),2);
-            
+            s(i)<=0;
             -r_default<=w(1,i)<=r_default;
             -r_default<=w(2,i)<=r_default;
             dh=2*(X(1:2,i)-obs_center);
@@ -87,7 +85,7 @@ for k=1:60
             %-0.1<=d(3:4,i)<=0.1;
 
 
-            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=0;
+            2*R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
             %R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)==s(i);
         end
         
@@ -96,11 +94,7 @@ for k=1:60
     cvx_end
 
     % 
-    for i=1:N-1
 
-        s(i)=R-norm(X(1:2,i)-obs_center,2);
-
-    end
 
     w=full(w);
     v=full(v);
@@ -109,8 +103,13 @@ for k=1:60
     u=u+w;
     hold on
     plot(X(1,:),X(2,:),'.')
+    for i=1:N-1
+
+        ss(i)=R-norm(X(1:2,i)-obs_center,2);
+
+    end
     pause(0.01)
-    if max(s)<0 && k>4
+    if max(ss)<0 && k>400
         break;
     end
 end
