@@ -51,8 +51,8 @@ hold on
 
 X(:,1)=[0;0 ;  0;5 ; 0;15   ;  0;10 ];
 %X(:,1)=[20;25 ;  20;20 ; 25;20   ;  25;25 ];
-kp = 5.8;
-kc = 0.5;
+kp = 2.5;
+kc = 0.8;
 Laplacian = - ones(Num_agen) + Num_agen*eye(Num_agen);
 %
 %
@@ -101,8 +101,8 @@ for i=1:N-1
     plot(X(3,i),X(4,i),'g.');
     plot(X(5,i),X(6,i),'b.');
     plot(X(7,i),X(8,i),'c.');
-    xlim([0 30])
-    ylim([0 30])
+    xlim([-5 30])
+    ylim([-5 30])
     pause(0.01)
 
 end
@@ -135,15 +135,15 @@ u0=u;
 
 
 %%
-R_obs=2;
-R_agent=1;
+R_obs=4;
+R_agent=1.5;
 
-obs_center=[
+obs_center=[12,12; ...
     X(1:2,1)'; ...
     X(3:4,1)'; ...
     X(5:6,1)'; ...
     X(7:8,1)'];
-R_plot=[R_agent,R_agent,R_agent,R_agent];
+R_plot=[2*R_obs-R_agent,R_agent,R_agent,R_agent,R_agent];
 R=2*R_plot;
 
 
@@ -217,8 +217,8 @@ for iteration=1:60
 
     %variable s_pos(N)
 
-    minimize (  norm((u+w-u0),1) + norm((X+d-X0),1) + ...
-        1000*lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   ))
+    minimize (  100*norm((u+w-V_des),1) + norm((X+d-X0),1) + ...
+        1000*lambda*sum(sum(abs(v)))  + lambda*(   sum(sum(max(s,0)))   ))
 
     subject to
     cvx_precision best
@@ -232,32 +232,12 @@ for iteration=1:60
 
     for i=1:N-1
 
-        obs_center=[
+        obs_center=[12,12; ...
             X(1:2,i)'; ...
             X(3:4,i)'; ...
             X(5:6,i)'; ...
             X(7:8,i)'];
 
-        % center(i,:)=[(X(1,i)+X(3,i)+X(5,i)+X(7,i))/4,(X(2,i)+X(4,i)+X(6,i)+X(8,i))/4];
-        % 
-        % 
-        % final = [20,25 ;  20,20 ; 25,20   ;  25,25 ];
-        % final_centeroid=[22.5,22.5];
-        % centroid_diff = center(i,:)-final_centeroid;
-        % V_des = Laplacian*(final-obs_center);
-        % V_des=kp*V_des - centroid_diff*kc;
-        % 
-        % for ii=1:4
-        %     for jj=1:2
-        %         if V_des(ii,jj)>8
-        %             V_dess(jj+2*(ii-1),1)=8;
-        %         elseif V_des(ii,jj)<-8
-        %             V_dess(jj+2*(ii-1),1)=-8;
-        %         else
-        %             V_dess(jj+2*(ii-1),1)=V_des(ii,jj);
-        %         end
-        %     end
-        % end
 
 
 
@@ -272,16 +252,12 @@ for iteration=1:60
                 (Ad*X((2*j-1):(2*j),i)+Ad*d((2*j-1):(2*j),i))+ ...
                 (Bd*u((2*j-1):(2*j),i)+Bd*w((2*j-1):(2*j),i))+E*v((2*j-1):(2*j),i);
 
-
-            
-
-
-
+ 
 
             countk=1;
 
             for k=1:obs_num
-                if k==j
+                if k==j+1
                     continue
                 end
                 s((countk-1)*(N)+i,j)>=0;
@@ -306,8 +282,8 @@ for iteration=1:60
     rho1 = 0.25;
     rho2 = 0.75;
 
-    Linear_cost(iteration)=(  norm((u+w-u0),1) + norm((X+d-X0),1) + ...
-        1000*lambda*sum(sum(abs(v)))  + lambda*0.001*(   sum(sum(max(s,0)))   ));
+    Linear_cost(iteration)=( 100*norm((u+w-V_des),1) + norm((X+d-X0),1) + ...
+        1000*lambda*sum(sum(abs(v)))  + lambda*(   sum(sum(max(s,0)))   ));
 
     if iteration >= 2
         delta_L = (Linear_cost(iteration) - Linear_cost(iteration-1)) / Linear_cost(iteration);
@@ -334,7 +310,7 @@ for iteration=1:60
             r = r / 1.6;
         end
     else
-        r = r / 1.7;
+        r = r / 1;
         X = X + d;
         u = u + w;
     end
@@ -350,7 +326,7 @@ for iteration=1:60
 
     for i=1:N
 
-        obs_center=[
+        obs_center=[12,12; ...
             X(1:2,i)'; ...
             X(3:4,i)'; ...
             X(5:6,i)'; ...
@@ -358,7 +334,7 @@ for iteration=1:60
         for j=1:Num_agen
             countk=1;
             for k=1:obs_num
-                if k==j
+                if k==j+1
                     continue
                 end
                 ss((countk-1)*(N)+i,j)=R(k)-norm(X((2*j-1):(2*j),i)-obs_center(k,:)',2);
@@ -384,6 +360,7 @@ end
 %%
 figure(2)
 hold on
+clf
 for i=1:N
     for j=1:Num_agen
         hold on
@@ -400,7 +377,7 @@ for i=1:N
         %plot(X0((2*i-1),:),X0((2*i),:),'.')
     end
 
-    obs_center=[
+    obs_center=[12,12; ...
         X(1:2,i)'; ...
         X(3:4,i)'; ...
         X(5:6,i)'; ...
@@ -410,17 +387,21 @@ for i=1:N
     theta=linspace(0,2*pi,201);
     xlim([-5 50])
     ylim([-5 50])
+    x_theta=R_plot(1)*cos(theta);
+    y_theta=R_plot(1)*sin(theta);
+    plot(obs_center(1,1)+x_theta,obs_center(1,2)+y_theta,'r')
     for j=1:obs_num
         hold on
         x_theta=R_plot(j)*cos(theta);
         y_theta=R_plot(j)*sin(theta);
-        if j==1
+        plot(obs_center(1,1)+x_theta,obs_center(1,2)+y_theta,'r')
+        if j==1+1
             plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'r')
-        elseif j==2
+        elseif j==2+1
             plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'g')
-        elseif j==3
+        elseif j==3+1
             plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'b')
-        elseif j==4
+        elseif j==4+1
             plot(obs_center(j,1)+x_theta,obs_center(j,2)+y_theta,'c')
         end
     end
