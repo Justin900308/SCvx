@@ -1,9 +1,8 @@
 clc 
 clear all
-close all
 clf
 
-A=[0 0;0 0];
+A=[0 0; 0 0];
 B=[1 0;0 1];
 C=eye(2,2);
 D=zeros(2,2);
@@ -18,32 +17,28 @@ T=50;
 %% intial trajectory
 count=1;
 X(:,1)=[0;0];
-for t=0:Ts:5
+for t=0:Ts:10
     if t<2
-        u(:,count)=1*0*[1;1];
+        u(:,count)=1*[1;01];
     else
-        u(:,count)=1*0*[1;1];
+        u(:,count)=1*[1;1];
     end
     X(:,count+1)=Ad*X(:,count)+Bd*u(:,count);
     count=count+1;   
 end
 
 
+
 plot(X(1,:),X(2,:),'.')
 hold on
 
 %%
-
-
-P_des=[10;10];
-
-
 N=length(X(1,:));
-obs_center=[5;4];
-R=3.5;
+obs_center=[5;6];
+R=5;
 alpha=1;
 
-r_default=0.3;
+r_default=0.8;
 
 lambda=10000;
 rho0=0.01;
@@ -54,90 +49,110 @@ figure(1)
 tol=0.001;
 
 
-
+Linear_cost=zeros(1,200);
 
 
 theta=linspace(0,2*pi,201);
 x_theta=R*cos(theta);
 y_theta=R*sin(theta);
 plot(obs_center(1)+x_theta,obs_center(2)+y_theta)
-for k=1:100
+for k=1:60
     
+
 
     cvx_solver SDPT3
     cvx_precision best
-    %cvx_solver sedumi
     cvx_begin 
         
         variable w(2,N-1)
 
         variable v(2,N-1)
         variable d(2,N)
-        %variable U(2,N-1)
-        variable s(N-1)
-        %s=zeros(N,1);
+        variable s(N)
         %variable s_pos(N)
-        minimize (  0.1*sum(sum(abs((u+w)*Ts))) + lambda*sum(sum(abs(v)))  + 1*lambda*sum(max(s,0)) )
-        %minimize (  01*sum(sum(abs((U)*Ts))) + lambda*sum(sum(abs(v)))  + 1*lambda*sum(max(s)) )
-  
+        minimize (  norm((u+w),1) + lambda*sum(sum(abs(v)))  + lambda*sum(max(s,0)) )
         subject to
         E=eye(2);
+        d(:,1)+X(:,1)==[0;0];
         
-        X(:,1)+d(:,1)==[0;0];
         for i=1:N-1
-            %s(i)<=-R*0.5*0;
-            
-            
-            
             X(:,i+1)+d(:,i+1)==(Ad*X(:,i)+Ad*d(:,i))+(Bd*u(:,i)+Bd*w(:,i))+E*v(:,i);
-            %U(:,i)  ==     0.5*(P_des-X(:,i))     -    (u(:,i)+w(:,i));  % desired velocity - actual velocity
-
-
-            %v_des=([10;10]-(X(1:2,i)+d(:,i)));
-            %U(i)==norm([00;0]-(X(1:2,i)))  -  (u(:,i)+w(:,i));
-
-            
             -r_default<=w(1,i)<=r_default;
             -r_default<=w(2,i)<=r_default;
             dh=2*(X(1:2,i)-obs_center);
             h=norm(X(1:2,i)-obs_center,2);
             %-0.1<=d(3:4,i)<=0.1;
 
-
-            %R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
-            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
-
-            %R-(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)*(X(1:2,i)-obs_center)'<=s(i);
-            %R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)
+            s(i)>=0;
+            2*R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)<=s(i);
+            %R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)==s(i);
         end
         
-        X(:,N)+d(:,N)==P_des;
+        X(:,N)+d(:,N)==[10;10];
         
     cvx_end
-
-    % 
 
 
     w=full(w);
     v=full(v);
     d=full(d);
-    X=X+d;
-    u=u+w;
+
+    % 
+
+    rho0 = 0;
+    rho1 = 0.25;
+    rho2 = 0.7;
+
+    Linear_cost(k)=norm((u+w),1) + lambda*sum(sum(abs(v)))  + lambda*sum(max(s,0));
+
+    if k >= 2
+        delta_L = (Linear_cost(k) - Linear_cost(k-1)) / Linear_cost(k);
+    else
+        delta_L = 1;
+    end
+
+
+    if abs(delta_L) <= rho0
+        r_default = max(r_default, 1.8);
+        X = X + d;
+        u = u + w;
+    elseif abs(delta_L) <= rho1
+        r_default = r_default/1.5;
+        X = X + d;
+        u = u + w;
+    elseif abs(delta_L) <= rho2
+        r_default = r_default / 3.2;
+        X = X + d;
+        u = u + w;
+    else
+        X = X + d;
+        u = u + w;
+        r_default = 1.8;
+    end
+    abs(delta_L)
+    r_default
+
+
+    % X=X+d;
+    % u=u+w;
     hold on
     plot(X(1,:),X(2,:),'.')
+
+    xlim([-3 15]);
+    ylim([-3 15]);
     for i=1:N-1
 
         ss(i)=R-norm(X(1:2,i)-obs_center,2);
 
     end
     pause(0.01)
-    if max(ss)<0 && k>10
+    if max(ss)<0 && k>100
         break;
     end
 end
 
 
-
+%%
 figure(2)
 hold on
 plot(X(1,:),X(2,:),'.')
@@ -149,7 +164,80 @@ plot(obs_center(1)+x_theta,obs_center(2)+y_theta)
 
 %%
 
+        for i=1:N-1
+
+            R-norm(X(1:2,i)-obs_center,2)-(X(1:2,i)-obs_center)'*(X(1:2,i)+d(1:2,i)-obs_center)/norm(X(1:2,i)-obs_center,2)
+
+        end
+        i=29
+%%
+
+%X=[5.1;5;0;0]
+% R-norm(X(1:2)-obs_center,2)-(X(1:2)-obs_center)'*(X(1:2)-obs_center)/norm(X(1:2)-obs_center,2)
+% 
+% lambda*sum(s(s>=0))
+%(X(1:2,i)-obs_center)'*(X(1:2,i)-obs_center)*d(:,i)
+
+% %%
+% obs_center=[5;5];
+% R=1;
+% alpha=1;
+% 
+% 
+% 
+% cvx_begin
+% 
+%     variable uu(102,1)
+%     variable XX(204,1)
+% 
+% 
+%     minimize(norm(uu,2))
+% 
+%     XX(1:4)==[0;0;0;0];
+%     uu(1:2)==[0;0];
+%     for i=2:51
+%         XX((i-1)*4+1:(i-1)*4+4)==Ad*XX((i-1-1)*4+1:(i-1-1)*4+4)+Bd*uu((i-1-1)*2+1:(i-1-1)*2+2);
+%         h=norm(XX((i-1-1)*4+1:(i-1-1)*4+2)-obs_center,2)-R;
+%         dh=2*(XX((i-1-1)*4+1:(i-1-1)*4+2)-obs_center)';
+% 
+%     end
+% 
+% 
+%     XX(201:204)==[10;10;0;0];
+% 
+% cvx_end
+% 
+% [X,u]=unstack_vec(XX,uu);
+% 
+
+% 
+% 
+% 
+% 
+% 
+% 
+% 
+% %% 
+% syms x y xobs yobs
+% P=[x;y]
+% P_obs=[xobs;yobs]
+% D=norm(P-P_obs)
+% pretty(diff(D,x))
+% pretty(diff(D,y))
 
 
 
+%% utility funcitons
 
+
+function XX=stack_vec(X,u)
+    XX=reshape(X(:,1:end-1),[length((X(:,1)))*length(X(1,:))-4,1]);
+    uu=reshape(u,[length((u(:,1)))*length(u(1,:)),1]);
+    XX=[XX;uu];
+end
+
+
+function [X,u]=unstack_vec(XX,uu)
+    X=reshape(XX,[4,length(XX)/4]);
+    u=reshape(uu,[2,length(uu)/2]);
+end
